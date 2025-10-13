@@ -415,7 +415,7 @@
                 <button id="create-room-btn">Crea Stanza Sicura</button>
                 
                 <h3 style="margin-top: 1.5rem;">Accedi a Stanza</h3>
-                <input type="text" id="join-room-input" placeholder="Incolla il link della stanza">
+                <input type="text" id="join-room-input" placeholder="Incolla: mare-blu-sole-rosso...">
                 <button id="join-room-btn">Accedi</button>
             </div>
 
@@ -489,6 +489,34 @@
                     '#ffd60a'  // giallo
                 ];
                 
+                // Dizionario 256 parole italiane comuni per encoding
+                this.wordlist = [
+                    'mare','sole','luna','cielo','terra','acqua','fuoco','vento','stella','notte',
+                    'giorno','alba','tramonto','nuvola','pioggia','neve','ghiaccio','fiamma','onda','sabbia',
+                    'monte','valle','fiume','lago','isola','bosco','fiore','albero','foglia','radice',
+                    'casa','porta','finestra','tetto','muro','scala','stanza','cucina','letto','tavolo',
+                    'sedia','libro','penna','carta','lettera','parola','frase','storia','poesia','musica',
+                    'canto','voce','suono','silenzio','eco','ritmo','nota','melodia','armonia','danza',
+                    'arte','colore','rosso','blu','verde','giallo','nero','bianco','grigio','rosa',
+                    'oro','argento','bronzo','ferro','pietra','legno','vetro','stoffa','seta','lana',
+                    'pane','vino','olio','sale','pepe','zucchero','miele','latte','formaggio','frutta',
+                    'mela','pera','uva','arancia','limone','banana','ciliegia','pesca','prugna','fragola',
+                    'cane','gatto','cavallo','leone','tigre','orso','lupo','volpe','coniglio','topo',
+                    'uccello','aquila','colomba','corvo','gufo','gallo','gallina','anatra','cigno','pappagallo',
+                    'pesce','balena','delfino','squalo','tonno','salmone','trota','anguilla','polpo','granchio',
+                    'farfalla','ape','mosca','formica','ragno','serpente','lucertola','rana','tartaruga','lumaca',
+                    'uomo','donna','bambino','padre','madre','figlio','figlia','fratello','sorella','nonno',
+                    'nonna','zio','zia','cugino','amico','vicino','maestro','dottore','poeta','artista',
+                    're','regina','principe','principessa','cavaliere','guerriero','mago','fata','angelo','demone',
+                    'dio','dea','eroe','gigante','nano','elfo','drago','unicorno','fenice','sirena',
+                    'tempo','anno','mese','giorno','ora','minuto','secondo','mattina','sera','notte',
+                    'passato','presente','futuro','storia','memoria','ricordo','sogno','pensiero','idea','mente',
+                    'cuore','anima','spirito','corpo','mano','piede','occhio','orecchio','bocca','naso',
+                    'testa','viso','capello','barba','dente','lingua','voce','respiro','sangue','osso',
+                    'forza','coraggio','paura','gioia','dolore','amore','odio','pace','guerra','vita',
+                    'morte','nascita','fine','inizio','viaggio','strada','ponte','porto','nave','vela'
+                ];
+                
                 this.initializeSocketIO();
                 this.initializeEventListeners();
             }
@@ -520,6 +548,106 @@
                     hash = hash & hash;
                 }
                 return icons[Math.abs(hash) % icons.length];
+            }
+
+            // Converte bytes in parole
+            bytesToWords(bytes) {
+                const words = [];
+                for (let i = 0; i < bytes.length; i++) {
+                    words.push(this.wordlist[bytes[i]]);
+                }
+                return words.join('-');
+            }
+
+            // Converte parole in bytes
+            wordsToBytes(wordsString) {
+                const words = wordsString.split('-');
+                const bytes = new Uint8Array(words.length);
+                for (let i = 0; i < words.length; i++) {
+                    const index = this.wordlist.indexOf(words[i]);
+                    if (index === -1) {
+                        throw new Error(`Parola non valida: ${words[i]}`);
+                    }
+                    bytes[i] = index;
+                }
+                return bytes;
+            }
+
+            // Genera chiave AES da seed
+            async generateKeyFromSeed(seed) {
+                // Usa PBKDF2 per derivare chiave da seed
+                const seedBuffer = new TextEncoder().encode(seed);
+                const baseKey = await crypto.subtle.importKey(
+                    'raw',
+                    seedBuffer,
+                    'PBKDF2',
+                    false,
+                    ['deriveBits']
+                );
+                
+                const derivedBits = await crypto.subtle.deriveBits(
+                    {
+                        name: 'PBKDF2',
+                        salt: new Uint8Array([83,101,99,117,114,101,67,104,97,116]), // "SecureChat"
+                        iterations: 100000,
+                        hash: 'SHA-256'
+                    },
+                    baseKey,
+                    256
+                );
+                
+                return await crypto.subtle.importKey(
+                    'raw',
+                    derivedBits,
+                    { name: 'AES-GCM', length: 256 },
+                    true,
+                    ['encrypt', 'decrypt']
+                );
+            }
+
+            // Codifica roomId + chiave in parole
+            async encodeRoomCode(roomId, encryptionKey) {
+                // Esporta la chiave
+                const keyExport = await crypto.subtle.exportKey("raw", encryptionKey);
+                const keyArray = new Uint8Array(keyExport);
+                
+                // Prendi primi 12 bytes della chiave come seed (96 bit - sicuro)
+                const seed = keyArray.slice(0, 12);
+                
+                // roomId hex → bytes (8 bytes completi = 16 char hex)
+                const roomIdBytes = new Uint8Array(roomId.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+                
+                // Combina: roomId (8 bytes) + seed (12 bytes) = 20 bytes = 20 parole
+                const combined = new Uint8Array(20);
+                combined.set(roomIdBytes.slice(0, 8), 0);
+                combined.set(seed, 8);
+                
+                return this.bytesToWords(combined);
+            }
+
+            // Decodifica parole in roomId + chiave
+            async decodeRoomCode(wordsString) {
+                try {
+                    const bytes = this.wordsToBytes(wordsString);
+                    
+                    if (bytes.length !== 20) {
+                        throw new Error(`Codice non valido (attese 20 parole, ricevute ${bytes.length})`);
+                    }
+                    
+                    // Estrai roomId (primi 8 bytes = 16 char hex)
+                    const roomIdBytes = bytes.slice(0, 8);
+                    const roomId = Array.from(roomIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                    
+                    // Estrai seed (ultimi 12 bytes)
+                    const seed = Array.from(bytes.slice(8, 20)).map(b => b.toString(16).padStart(2, '0')).join('');
+                    
+                    // Rigenera chiave dal seed
+                    const key = await this.generateKeyFromSeed(seed);
+                    
+                    return { roomId, key };
+                } catch (error) {
+                    throw new Error('Codice non valido: ' + error.message);
+                }
             }
 
             initializeSocketIO() {
@@ -639,27 +767,26 @@
                     const data = await response.json();
                     this.roomId = data.roomId;
 
-                    // Esporta la chiave in base64
-                    const keyExport = await crypto.subtle.exportKey("raw", this.encryptionKey);
-                    const keyArray = Array.from(new Uint8Array(keyExport));
-                    const keyBase64 = btoa(String.fromCharCode(...keyArray));
-
-                    // Crea URL completo
-                    const roomLink = `${window.location.origin}${window.location.pathname}#room=${this.roomId}&key=${encodeURIComponent(keyBase64)}`;
+                    // Genera codice parole (20 parole)
+                    const roomCode = await this.encodeRoomCode(this.roomId, this.encryptionKey);
+                    const words = roomCode.split('-');
+                    const preview = words.slice(0, 5).join('-') + '...';
 
                     // Copia automaticamente negli appunti
                     try {
-                        await navigator.clipboard.writeText(roomLink);
-                        this.showError('✅ Link copiato! Condividilo per iniziare la chat');
+                        await navigator.clipboard.writeText(roomCode);
+                        this.showNotification(`✅ Codice copiato! (${words.length} parole)`);
+                        console.log('Codice completo:', roomCode);
                     } catch (err) {
                         // Fallback per browser vecchi
                         const textarea = document.createElement('textarea');
-                        textarea.value = roomLink;
+                        textarea.value = roomCode;
                         document.body.appendChild(textarea);
                         textarea.select();
                         document.execCommand('copy');
                         document.body.removeChild(textarea);
-                        this.showError('✅ Link copiato! Condividilo per iniziare la chat');
+                        this.showNotification('✅ Codice copiato negli appunti!');
+                        console.log('Codice completo:', roomCode);
                     }
 
                     btn.disabled = false;
@@ -679,9 +806,9 @@
             }
 
             async joinRoom() {
-                const roomLink = document.getElementById('join-room-input').value.trim();
-                if (!roomLink) {
-                    this.showError('Incolla un link di stanza valido');
+                const input = document.getElementById('join-room-input').value.trim();
+                if (!input) {
+                    this.showError('Incolla il codice della stanza');
                     return;
                 }
 
@@ -695,14 +822,33 @@
                     btn.disabled = true;
                     btn.innerHTML = '<span class="loading"></span> Accesso...';
 
-                    const url = new URL(roomLink);
-                    const hashParams = new URLSearchParams(url.hash.substring(1));
+                    // Determina se è URL o codice parole
+                    if (input.includes('://') || input.includes('#room=')) {
+                        // Formato vecchio: URL
+                        const url = new URL(input);
+                        const hashParams = new URLSearchParams(url.hash.substring(1));
 
-                    this.roomId = hashParams.get('room');
-                    const keyBase64 = hashParams.get('key');
+                        this.roomId = hashParams.get('room');
+                        const keyBase64 = hashParams.get('key');
 
-                    if (!this.roomId || !keyBase64) {
-                        throw new Error('Link della stanza non valido');
+                        if (!this.roomId || !keyBase64) {
+                            throw new Error('Link della stanza non valido');
+                        }
+
+                        // Importa la chiave di cifratura
+                        const keyBytes = Uint8Array.from(atob(decodeURIComponent(keyBase64)), c => c.charCodeAt(0));
+                        this.encryptionKey = await crypto.subtle.importKey(
+                            "raw",
+                            keyBytes,
+                            { name: "AES-GCM", length: 256 },
+                            true,
+                            ["encrypt", "decrypt"]
+                        );
+                    } else {
+                        // Formato nuovo: codice parole
+                        const decoded = await this.decodeRoomCode(input);
+                        this.roomId = decoded.roomId;
+                        this.encryptionKey = decoded.key;
                     }
 
                     // Verifica se la stanza esiste
@@ -716,28 +862,18 @@
                         throw new Error('Stanza non trovata o scaduta');
                     }
 
-                    // Importa la chiave di cifratura
-                    const keyBytes = Uint8Array.from(atob(decodeURIComponent(keyBase64)), c => c.charCodeAt(0));
-                    this.encryptionKey = await crypto.subtle.importKey(
-                        "raw",
-                        keyBytes,
-                        { name: "AES-GCM", length: 256 },
-                        true,
-                        ["encrypt", "decrypt"]
-                    );
-
                     btn.disabled = false;
-                    btn.textContent = 'Accedi alla Stanza';
+                    btn.textContent = 'Accedi';
 
                     this.joinChat();
 
                 } catch (error) {
                     console.error('Errore nell\'accesso alla stanza:', error);
-                    this.showError(error.message || 'Link della stanza non valido');
+                    this.showError(error.message || 'Codice della stanza non valido');
                     
                     const btn = document.getElementById('join-room-btn');
                     btn.disabled = false;
-                    btn.textContent = 'Accedi alla Stanza';
+                    btn.textContent = 'Accedi';
                 }
             }
 
