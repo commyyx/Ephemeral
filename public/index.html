@@ -256,6 +256,23 @@
             animation: slideDown 0.3s ease;
         }
 
+        .notification {
+            background-color: var(--success);
+            color: var(--bg-dark);
+            font-weight: 600;
+            padding: 1rem;
+            text-align: center;
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 90%;
+            animation: slideDown 0.3s ease;
+        }
+
         @keyframes slideDown {
             from {
                 opacity: 0;
@@ -459,9 +476,50 @@
                 this.messages = [];
                 this.isConnected = false;
                 this.isInRoom = false;
+                this.userId = this.generateUserId(); // ID univoco per questo utente
+                this.userColors = new Map(); // Mappa userId -> colore
+                this.availableColors = [
+                    '#e63946', // rosso
+                    '#f77f00', // arancione
+                    '#06ffa5', // verde neon
+                    '#0096c7', // blu cyan
+                    '#9d4edd', // viola chiaro
+                    '#ff006e', // magenta
+                    '#06d6a0', // verde acqua
+                    '#ffd60a'  // giallo
+                ];
                 
                 this.initializeSocketIO();
                 this.initializeEventListeners();
+            }
+
+            generateUserId() {
+                return 'user_' + Math.random().toString(36).substring(2, 11);
+            }
+
+            getUserColor(userId) {
+                if (!this.userColors.has(userId)) {
+                    // Assegna un colore basato sull'hash dell'userId
+                    let hash = 0;
+                    for (let i = 0; i < userId.length; i++) {
+                        hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+                        hash = hash & hash;
+                    }
+                    const colorIndex = Math.abs(hash) % this.availableColors.length;
+                    this.userColors.set(userId, this.availableColors[colorIndex]);
+                }
+                return this.userColors.get(userId);
+            }
+
+            getUserIcon(userId) {
+                // Genera un'emoji/icona basata sull'userId
+                const icons = ['🔴', '🟠', '🟢', '🔵', '🟣', '🟡', '🔶', '🔷'];
+                let hash = 0;
+                for (let i = 0; i < userId.length; i++) {
+                    hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+                    hash = hash & hash;
+                }
+                return icons[Math.abs(hash) % icons.length];
             }
 
             initializeSocketIO() {
@@ -711,12 +769,13 @@
                     // Cifra il messaggio
                     const encryptedContent = await this.encryptMessage(messageText);
 
-                    // Invia al server
+                    // Invia al server con userId
                     this.socket.emit('send_message', {
                         roomId: this.roomId,
                         message: {
                             content: encryptedContent,
-                            type: 'text'
+                            type: 'text',
+                            userId: this.userId
                         }
                     });
 
@@ -738,22 +797,26 @@
 
                 if (!file.type.startsWith('image/')) {
                     this.showError('Solo immagini sono supportate');
+                    event.target.value = '';
                     return;
                 }
 
                 // Limite dimensione: 5MB
                 if (file.size > 5 * 1024 * 1024) {
                     this.showError('Immagine troppo grande. Massimo 5MB');
+                    event.target.value = '';
                     return;
                 }
 
                 if (!this.isConnected || !this.isInRoom) {
                     this.showError('Non connesso alla stanza');
+                    event.target.value = '';
                     return;
                 }
 
                 try {
-                    this.showError('Caricamento immagine...'); // Usa come notifica temporanea
+                    // Mostra notifica di caricamento
+                    this.showNotification('📤 Caricamento immagine...');
 
                     const reader = new FileReader();
 
@@ -764,20 +827,27 @@
                             // Cifra i dati dell'immagine
                             const encryptedImage = await this.encryptMessage(imageData);
 
-                            // Invia al server
+                            // Invia al server con userId
                             this.socket.emit('send_message', {
                                 roomId: this.roomId,
                                 message: {
                                     content: encryptedImage,
                                     type: 'image',
-                                    mimeType: file.type
+                                    mimeType: file.type,
+                                    userId: this.userId
                                 }
                             });
+
+                            this.showNotification('✅ Immagine inviata!');
 
                         } catch (error) {
                             console.error('Errore nel caricamento file:', error);
                             this.showError('Errore nel caricamento del file cifrato');
                         }
+                    };
+
+                    reader.onerror = () => {
+                        this.showError('Errore nella lettura del file');
                     };
 
                     reader.readAsDataURL(file);
@@ -786,6 +856,7 @@
                 } catch (error) {
                     console.error('Errore nel caricamento file:', error);
                     this.showError('Errore nel caricamento del file cifrato');
+                    event.target.value = '';
                 }
             }
 
@@ -837,25 +908,65 @@
 
                     const messagesContainer = document.getElementById('messages-container');
                     const messageElement = document.createElement('div');
-                    messageElement.className = 'message received';
+                    
+                    // Determina se è il messaggio dell'utente corrente
+                    const isOwnMessage = encryptedMessage.userId === this.userId;
+                    
+                    messageElement.className = isOwnMessage ? 'message sent' : 'message received';
                     messageElement.dataset.messageId = encryptedMessage.id;
 
-                    if (encryptedMessage.type === 'text') {
-                        messageElement.innerHTML = `
-                            <div>${this.escapeHtml(decryptedContent)}</div>
-                            <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
-                            <button class="report-btn" onclick="secureChat.reportMessage('${encryptedMessage.id}')">Segnala</button>
-                        `;
-                    } else if (encryptedMessage.type === 'image') {
-                        messageElement.innerHTML = `
-                            <div>Immagine cifrata</div>
-                            <img src="${decryptedContent}" 
-                                 alt="Immagine cifrata" 
-                                 class="message-image"
-                                 style="max-width: 300px;">
-                            <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
-                            <button class="report-btn" onclick="secureChat.reportMessage('${encryptedMessage.id}')">Segnala</button>
-                        `;
+                    // Se non è il proprio messaggio, aggiungi bordo colorato e icona
+                    if (!isOwnMessage && encryptedMessage.userId) {
+                        const userColor = this.getUserColor(encryptedMessage.userId);
+                        const userIcon = this.getUserIcon(encryptedMessage.userId);
+                        messageElement.style.borderLeft = `4px solid ${userColor}`;
+                        messageElement.style.paddingLeft = '0.5rem';
+                        
+                        // Aggiungi icona utente
+                        const iconSpan = document.createElement('span');
+                        iconSpan.textContent = userIcon;
+                        iconSpan.style.cssText = 'margin-right: 0.5rem; font-size: 1.1rem;';
+                        
+                        if (encryptedMessage.type === 'text') {
+                            messageElement.innerHTML = `
+                                <div style="display: flex; align-items: center;">
+                                    <span style="margin-right: 0.5rem; font-size: 1.1rem;">${userIcon}</span>
+                                    <span>${this.escapeHtml(decryptedContent)}</span>
+                                </div>
+                                <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
+                                <button class="report-btn" onclick="secureChat.reportMessage('${encryptedMessage.id}')">Segnala</button>
+                            `;
+                        } else if (encryptedMessage.type === 'image') {
+                            messageElement.innerHTML = `
+                                <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                                    <span style="margin-right: 0.5rem; font-size: 1.1rem;">${userIcon}</span>
+                                    <span>Immagine cifrata</span>
+                                </div>
+                                <img src="${decryptedContent}" 
+                                     alt="Immagine cifrata" 
+                                     class="message-image"
+                                     style="max-width: 300px;">
+                                <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
+                                <button class="report-btn" onclick="secureChat.reportMessage('${encryptedMessage.id}')">Segnala</button>
+                            `;
+                        }
+                    } else {
+                        // Messaggio proprio - nessun bordo colorato o icona
+                        if (encryptedMessage.type === 'text') {
+                            messageElement.innerHTML = `
+                                <div>${this.escapeHtml(decryptedContent)}</div>
+                                <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
+                            `;
+                        } else if (encryptedMessage.type === 'image') {
+                            messageElement.innerHTML = `
+                                <div>Immagine cifrata</div>
+                                <img src="${decryptedContent}" 
+                                     alt="Immagine cifrata" 
+                                     class="message-image"
+                                     style="max-width: 300px;">
+                                <small>${new Date(encryptedMessage.timestamp).toLocaleTimeString('it-IT')}</small>
+                            `;
+                        }
                     }
 
                     messagesContainer.appendChild(messageElement);
@@ -914,6 +1025,14 @@
                 errorDiv.textContent = message;
                 document.body.appendChild(errorDiv);
                 setTimeout(() => errorDiv.remove(), 3000);
+            }
+
+            showNotification(message) {
+                const notifDiv = document.createElement('div');
+                notifDiv.className = 'notification';
+                notifDiv.textContent = message;
+                document.body.appendChild(notifDiv);
+                setTimeout(() => notifDiv.remove(), 3000);
             }
 
             escapeHtml(unsafe) {

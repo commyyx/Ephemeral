@@ -74,7 +74,7 @@ app.post('/api/room/:roomId/report', (req, res) => {
     
     // Notifica tutti gli utenti nella stanza
     io.to(roomId).emit('room_blocked', {
-      reason: 'Questa stanza è stata segnalata e bloccata'
+      reason: 'Questa stanza e stata segnalata e bloccata'
     });
   }
   
@@ -130,11 +130,12 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Crea oggetto messaggio
+    // Crea oggetto messaggio - MANTIENI userId dal client
     const messageObj = {
       id: generateMessageId(),
       content: message.content,
       type: message.type,
+      userId: message.userId || 'unknown', // Importante: mantieni userId
       timestamp: new Date().toISOString(),
       expiresAt: new Date(Date.now() + MESSAGE_EXPIRY_MS)
     };
@@ -144,13 +145,13 @@ io.on('connection', (socket) => {
     roomMessages.push(messageObj);
     messages.set(roomId, roomMessages);
     
-    // Aggiorna ultima attività
+    // Aggiorna ultima attivita
     room.lastActivity = new Date();
     
-    // Invia a tutti nella stanza
+    // Invia a tutti nella stanza (incluso mittente)
     io.to(roomId).emit('new_message', messageObj);
     
-    console.log(`Messaggio inviato in stanza ${roomId} - Tipo: ${message.type}`);
+    console.log(`Messaggio inviato in stanza ${roomId} - Tipo: ${message.type} - User: ${messageObj.userId}`);
   });
 
   socket.on('disconnect', () => {
@@ -180,7 +181,7 @@ setInterval(() => {
     }
   }
 
-  // Pulizia stanze inattive (più di 24 ore)
+  // Pulizia stanze inattive (piu di 24 ore)
   for (const [roomId, room] of rooms) {
     const hoursInactive = (now - room.lastActivity) / (1000 * 60 * 60);
     if (hoursInactive > 24 && room.users.size === 0) {
@@ -195,7 +196,7 @@ setInterval(() => {
   }
 }, ROOM_CLEANUP_INTERVAL);
 
-// Funzioni di utilità
+// Funzioni di utilita
 function generateRoomId() {
   return crypto.randomBytes(8).toString('hex');
 }
@@ -214,6 +215,6 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server SecureChat in esecuzione sulla porta ${PORT}`);
-  console.log(`📧 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server SecureChat in esecuzione sulla porta ${PORT}`);
+  console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });
