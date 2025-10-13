@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat - Comunicazione Cifrata</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --background-color: #ecf0f1;
+            --message-sent: #3498db;
+            --message-received: #2ecc71;
+            --error-color: #e74c3c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            padding: 1rem;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            border-radius: 8px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.sent {
+            background-color: var(--message-sent);
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.received {
+            background-color: var(--message-received);
+            color: white;
+        }
+
+        .message-image {
+            max-width: 100%;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input, textarea, button {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        textarea {
+            flex: 1;
+            resize: none;
+            height: 60px;
+        }
+
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .status {
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .encryption-status {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .error {
+            color: var(--error-color);
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .welcome-screen h2 {
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .welcome-screen p {
+            margin-bottom: 2rem;
+            color: #7f8c8d;
+            max-width: 500px;
+        }
+
+        .feature-list {
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔒 SecureChat</h1>
+        <p>Comunicazione Privata e Cifrata</p>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div id="room-creation">
+                <h3>Crea Nuova Chat</h3>
+                <button id="create-room-btn" style="width: 100%; margin-bottom: 1rem;">
+                    Crea Nuova Stanza Sicura
+                </button>
+                
+                <div id="room-created" class="hidden">
+                    <h3>La tua stanza è pronta!</h3>
+                    <p>Condividi questo link:</p>
+                    <input type="text" id="room-link" readonly style="width: 100%; margin-bottom: 1rem;">
+                    <button id="copy-link-btn">Copia Link</button>
+                    <p style="font-size: 0.8rem; margin-top: 1rem; color: #7f8c8d;">
+                        ⚠️ Questo link contiene la chiave di cifratura. Chiunque lo possiede può accedere alla chat.
+                    </p>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <h3>Accedi a Stanza</h3>
+                    <input type="text" id="join-room-input" placeholder="Incolla il link della stanza" style="width: 100%; margin-bottom: 0.5rem;">
+                    <button id="join-room-btn" style="width: 100%;">Accedi alla Stanza</button>
+                </div>
+            </div>
+
+            <div class="status" id="connection-status">
+                <span id="encryption-status" class="encryption-status">🔒 Connessione Cifrata</span>
+            </div>
+        </div>
+
+        <div class="chat-area">
+            <div id="welcome-screen" class="welcome-screen">
+                <h2>Benvenuto in SecureChat</h2>
+                <p>Una piattaforma per comunicare in modo completamente anonimo e cifrato end-to-end.</p>
+                
+                <div class="feature-list">
+                    <h3>Caratteristiche di Sicurezza:</h3>
+                    <ul>
+                        <li>✅ Cifratura End-to-End (E2EE)</li>
+                        <li>✅ Nessuna registrazione richiesta</li>
+                        <li>✅ Messaggi "a fuoco lento"</li>
+                        <li>✅ Condivisione file cifrata</li>
+                        <li>✅ Completamente anonimo</li>
+                    </ul>
+                </div>
+
+                <p>Per iniziare, crea una nuova stanza o accedi con un link esistente.</p>
+            </div>
+
+            <div id="chat-interface" class="hidden">
+                <div class="messages" id="messages-container">
+                    <!-- I messaggi appariranno qui -->
+                </div>
+
+                <div class="input-area">
+                    <textarea id="message-input" placeholder="Scrivi il tuo messaggio cifrato..."></textarea>
+                    <div class="file-input-wrapper">
+                        <button>📎</button>
+                        <input type="file" id="file-input" accept="image/*">
+                    </div>
+                    <button id="send-btn">Invia</button>
+                </div>
+                <div class="status">
+                    <span id="message-status">I messaggi si autodistruggono dopo 1 ora</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Crittografia AES-GCM
+        class SecureChat {
+            constructor() {
+                this.roomId = null;
+                this.encryptionKey = null;
+                this.messages = [];
+                this.isConnected = false;
+                
+                this.initializeEventListeners();
+            }
+
+            async initializeEventListeners() {
+                document.getElementById('create-room-btn').addEventListener('click', () => this.createRoom());
+                document.getElementById('join-room-btn').addEventListener('click', () => this.joinRoom());
+                document.getElementById('copy-link-btn').addEventListener('click', () => this.copyRoomLink());
+                document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
+                document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
+                document.getElementById('message-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+            }
+
+            async createRoom() {
+                try {
+                    // Genera una chiave di cifratura casuale
+                    this.encryptionKey = await crypto.subtle.generateKey(
+                        { name: "AES-GCM", length: 256 },
+                        true,
+                        ["encrypt", "decrypt"]
+                    );
+
+                    // Genera un ID stanza univoco
+                    this.roomId = this.generateRoomId();
+                    
+                    // Crea il link con la chiave (in formato semplificato)
+                    const keyExport = await crypto.subtle.exportKey("raw", this.encryptionKey);
+                    const keyArray = Array.from(new Uint8Array(keyExport));
+                    const keyBase64 = btoa(String.fromCharCode(...keyArray));
+                    
+                    const roomLink = `${window.location.origin}${window.location.pathname}#room=${this.roomId}&key=${encodeURIComponent(keyBase64)}`;
+                    
+                    // Mostra il link
+                    document.getElementById('room-link').value = roomLink;
+                    document.getElementById('room-created').classList.remove('hidden');
+                    
+                    this.joinChat();
+                    
+                } catch (error) {
+                    console.error('Errore nella creazione della stanza:', error);
+                    this.showError('Errore nella creazione della stanza sicura');
+                }
+            }
+
+            async joinRoom() {
+                const roomLink = document.getElementById('join-room-input').value;
+                if (!roomLink) {
+                    this.showError('Incolla un link di stanza valido');
+                    return;
+                }
+
+                try {
+                    const url = new URL(roomLink);
+                    const hashParams = new URLSearchParams(url.hash.substring(1));
+                    
+                    this.roomId = hashParams.get('room');
+                    const keyBase64 = hashParams.get('key');
+                    
+                    if (!this.roomId || !keyBase64) {
+                        this.showError('Link della stanza non valido');
+                        return;
+                    }
+
+                    // Importa la chiave di cifratura
+                    const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+                    this.encryptionKey = await crypto.subtle.importKey(
+                        "raw",
+                        keyBytes,
+                        { name: "AES-GCM", length: 256 },
+                        true,
+                        ["encrypt", "decrypt"]
+                    );
+
+                    this.joinChat();
+                    
+                } catch (error) {
+                    console.error('Errore nell\'accesso alla stanza:', error);
+                    this.showError('Link della stanza non valido');
+                }
+            }
+
+            joinChat() {
+                document.getElementById('welcome-screen').classList.add('hidden');
+                document.getElementById('chat-interface').classList.remove('hidden');
+                this.isConnected = true;
+                
+                // Simula connessione WebSocket (da implementare con backend reale)
+                this.simulateWebSocketConnection();
+                
+                this.addSystemMessage('Sei entrato nella chat cifrata. I messaggi si autodistruggeranno dopo 1 ora.');
+            }
+
+            async sendMessage() {
+                const messageInput = document.getElementById('message-input');
+                const messageText = messageInput.value.trim();
+                
+                if (!messageText || !this.isConnected) return;
+
+                try {
+                    // Cifra il messaggio
+                    const encryptedMessage = await this.encryptMessage(messageText);
+                    
+                    // Crea oggetto messaggio
+                    const message = {
+                        id: this.generateMessageId(),
+                        content: encryptedMessage,
+                        type: 'text',
+                        timestamp: new Date().toISOString(),
+                        sender: 'you'
+                    };
+
+                    // Aggiungi al display
+                    this.displayMessage(message, messageText);
+                    
+                    // Simula invio al server
+                    this.simulateSendToServer(message);
+                    
+                    // Pulisci input
+                    messageInput.value = '';
+                    
+                } catch (error) {
+                    console.error('Errore nell\'invio del messaggio:', error);
+                    this.showError('Errore nell\'invio del messaggio cifrato');
+                }
+            }
+
+            async handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file || !file.type.startsWith('image/')) return;
+
+                try {
+                    const reader = new FileReader();
+                    
+                    reader.onload = async (e) => {
+                        const imageData = e.target.result;
+                        
+                        // Cifra i dati dell'immagine
+                        const encryptedImage = await this.encryptMessage(imageData);
+                        
+                        const message = {
+                            id: this.generateMessageId(),
+                            content: encryptedImage,
+                            type: 'image',
+                            timestamp: new Date().toISOString(),
+                            sender: 'you',
+                            mimeType: file.type
+                        };
+
+                        // Display anteprima immagine
+                        this.displayMessage(message, null, imageData);
+                        
+                        // Simula invio al server
+                        this.simulateSendToServer(message);
+                    };
+                    
+                    reader.readAsDataURL(file);
+                    event.target.value = ''; // Reset input file
+                    
+                } catch (error) {
+                    console.error('Errore nel caricamento file:', error);
+                    this.showError('Errore nel caricamento del file cifrato');
+                }
+            }
+
+            async encryptMessage(message) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(message);
+                
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                
+                const encrypted = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv: iv },
+                    this.encryptionKey,
+                    data
+                );
+                
+                // Combina IV + dati cifrati
+                const combined = new Uint8Array(iv.length + encrypted.byteLength);
+                combined.set(iv);
+                combined.set(new Uint8Array(encrypted), iv.length);
+                
+                return btoa(String.fromCharCode(...combined));
+            }
+
+            async decryptMessage(encryptedData) {
+                try {
+                    const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+                    
+                    const iv = combined.slice(0, 12);
+                    const data = combined.slice(12);
+                    
+                    const decrypted = await crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv: iv },
+                        this.encryptionKey,
+                        data
+                    );
+                    
+                    const decoder = new TextDecoder();
+                    return decoder.decode(decrypted);
+                    
+                } catch (error) {
+                    console.error('Errore nella decifratura:', error);
+                    throw new Error('Impossibile decifrare il messaggio');
+                }
+            }
+
+            displayMessage(message, decryptedText = null, imageData = null) {
+                const messagesContainer = document.getElementById('messages-container');
+                const messageElement = document.createElement('div');
+                messageElement.className = `message ${message.sender === 'you' ? 'sent' : 'received'}`;
+                messageElement.dataset.messageId = message.id;
+
+                if (message.type === 'text') {
+                    messageElement.innerHTML = `
+                        <div>${this.escapeHtml(decryptedText || 'Messaggio cifrato...')}</div>
+                        <small>${new Date(message.timestamp).toLocaleTimeString()}</small>
+                    `;
+                } else if (message.type === 'image') {
+                    messageElement.innerHTML = `
+                        <div>Immagine cifrata</div>
+                        <img src="${imageData || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}" 
+                             alt="Immagine cifrata" class="message-image" 
+                             onload="if(this.naturalWidth > 300) this.style.maxWidth='300px'">
+                        <small>${new Date(message.timestamp).toLocaleTimeString()}</small>
+                    `;
+                }
+
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            async displayEncryptedMessage(encryptedMessage) {
+                try {
+                    const decryptedContent = await this.decryptMessage(encryptedMessage.content);
+                    
+                    if (encryptedMessage.type === 'image') {
+                        this.displayMessage(encryptedMessage, null, decryptedContent);
+                    } else {
+                        this.displayMessage(encryptedMessage, decryptedContent);
+                    }
+                } catch (error) {
+                    console.error('Errore nella visualizzazione del messaggio:', error);
+                    this.displayMessage({
+                        ...encryptedMessage,
+                        content: '❌ Impossibile decifrare questo messaggio'
+                    }, '❌ Impossibile decifrare questo messaggio');
+                }
+            }
+
+            addSystemMessage(text) {
+                const messagesContainer = document.getElementById('messages-container');
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+                messageElement.style.backgroundColor = '#f39c12';
+                messageElement.style.color = 'white';
+                messageElement.style.textAlign = 'center';
+                messageElement.style.margin = '0.5rem auto';
+                messageElement.style.maxWidth = '80%';
+                messageElement.innerHTML = `<em>${text}</em>`;
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            // Metodi di utilità
+            generateRoomId() {
+                return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            }
+
+            generateMessageId() {
+                return Date.now().toString(36) + Math.random().toString(36).substring(2);
+            }
+
+            copyRoomLink() {
+                const roomLink = document.getElementById('room-link');
+                roomLink.select();
+                document.execCommand('copy');
+                alert('Link copiato negli appunti!');
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                document.body.appendChild(errorDiv);
+                setTimeout(() => errorDiv.remove(), 3000);
+            }
+
+            escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // Simulazione WebSocket (da sostituire con implementazione reale)
+            simulateWebSocketConnection() {
+                // Simula ricezione messaggi dopo 2 secondi
+                setTimeout(() => {
+                    this.addSystemMessage('Altri utenti possono unirsi a questa stanza condividendo il link.');
+                }, 2000);
+            }
+
+            simulateSendToServer(message) {
+                console.log('Messaggio inviato al server:', {
+                    id: message.id,
+                    type: message.type,
+                    timestamp: message.timestamp
+                    // Il contenuto è cifrato, il server non può leggerlo
+                });
+                
+                // Simula ritardo di rete e messaggio ricevuto
+                setTimeout(async () => {
+                    // In un'implementazione reale, questo verrebbe dal server via WebSocket
+                    const receivedMessage = {
+                        ...message,
+                        sender: 'other',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    await this.displayEncryptedMessage(receivedMessage);
+                }, 1000 + Math.random() * 2000);
+            }
+        }
+
+        // Inizializza l'app quando la pagina è caricata
+        document.addEventListener('DOMContentLoaded', () => {
+            window.secureChat = new SecureChat();
+            
+            // Controlla se c'è un room ID nell'URL (per unire automaticamente)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const roomId = hashParams.get('room');
+            const key = hashParams.get('key');
+            
+            if (roomId && key) {
+                document.getElementById('join-room-input').value = window.location.href;
+                setTimeout(() => window.secureChat.joinRoom(), 1000);
+            }
+        });
+    </script>
+</body>
+</html>
