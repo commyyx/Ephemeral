@@ -23,7 +23,9 @@ const CONFIG = {
     'cuore','anima','spirito','corpo','mano','piede','occhio','orecchio','bocca','naso',
     'testa','viso','capello','barba','dente','lingua','voce','respiro','sangue','osso',
     'forza','coraggio','paura','gioia','dolore','amore','odio','pace','guerra','vita',
-    'morte','nascita','fine','inizio','viaggio','strada','ponte','porto','nave','vela'
+    'morte','nascita','fine','inizio','viaggio','strada','ponte','porto','nave','vela',
+    'luce','ombra','spazio','mondo','citta','paese','piano','posto','punto','parte',
+    'fatto','modo','caso','numero','gente','volta'
   ],
   
   USER_COLORS: [

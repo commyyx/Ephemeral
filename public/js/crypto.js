@@ -2,7 +2,11 @@ const CryptoHelper = {
   bytesToWords(bytes) {
     const words = [];
     for (let i = 0; i < bytes.length; i++) {
-      words.push(CONFIG.WORDLIST[bytes[i]]);
+      const word = CONFIG.WORDLIST[bytes[i]];
+      if (word === undefined) {
+        throw new Error(`Byte ${bytes[i]} non mappato in WORDLIST (index out of range 0-255)`);
+      }
+      words.push(word);
     }
     return words.join('-');
   },
