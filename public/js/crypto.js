@@ -8,12 +8,20 @@ const CryptoHelper = {
   },
 
   wordsToBytes(wordsString) {
-    const words = wordsString.split('-');
+    // SANITIZE INPUT: rimuovi spazi, newline, tab
+    const sanitized = wordsString
+      .trim()                           // rimuovi spazi inizio/fine
+      .replace(/\s+/g, '')              // rimuovi TUTTI gli spazi bianchi
+      .replace(/[\r\n\t]/g, '')         // rimuovi newline e tab
+      .toLowerCase();                   // lowercase per sicurezza
+    
+    const words = sanitized.split('-').filter(w => w.length > 0);  // filtra stringhe vuote
     const bytes = new Uint8Array(words.length);
+    
     for (let i = 0; i < words.length; i++) {
       const index = CONFIG.WORDLIST.indexOf(words[i]);
       if (index === -1) {
-        throw new Error(`Parola non valida: ${words[i]}`);
+        throw new Error(`Parola non valida: "${words[i]}" (posizione ${i+1}/${words.length})`);
       }
       bytes[i] = index;
     }

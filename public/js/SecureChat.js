@@ -223,7 +223,14 @@ class SecureChat {
           ["encrypt", "decrypt"]
         );
       } else {
-        const decoded = await CryptoHelper.decodeRoomCode(input);
+        // SANITIZE INPUT prima di decodificare
+        const sanitizedInput = input
+          .trim()
+          .replace(/\s+/g, '')
+          .replace(/[\r\n\t]/g, '')
+          .toLowerCase();
+        
+        const decoded = await CryptoHelper.decodeRoomCode(sanitizedInput);
         this.roomId = decoded.roomId;
         this.encryptionKey = decoded.key;
       }
