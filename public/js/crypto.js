@@ -14,12 +14,12 @@ const CryptoHelper = {
   wordsToBytes(wordsString) {
     // SANITIZE INPUT: rimuovi spazi, newline, tab
     const sanitized = wordsString
-      .trim()                           // rimuovi spazi inizio/fine
-      .replace(/\s+/g, '')              // rimuovi TUTTI gli spazi bianchi
-      .replace(/[\r\n\t]/g, '')         // rimuovi newline e tab
-      .toLowerCase();                   // lowercase per sicurezza
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[\r\n\t]/g, '')
+      .toLowerCase();
     
-    const words = sanitized.split('-').filter(w => w.length > 0);  // filtra stringhe vuote
+    const words = sanitized.split('-').filter(w => w.length > 0);
     const bytes = new Uint8Array(words.length);
     
     for (let i = 0; i < words.length; i++) {
@@ -62,15 +62,14 @@ const CryptoHelper = {
     );
   },
 
-  async encodeRoomCode(roomId, encryptionKey) {
-    const keyExport = await crypto.subtle.exportKey("raw", encryptionKey);
-    const keyArray = new Uint8Array(keyExport);
-    const seed = keyArray.slice(0, 12);
+  // FIX: Ora accetta il SEED direttamente, non la chiave
+  async encodeRoomCode(roomId, seedHex) {
     const roomIdBytes = new Uint8Array(roomId.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+    const seedBytes = new Uint8Array(seedHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
     
     const combined = new Uint8Array(20);
     combined.set(roomIdBytes.slice(0, 8), 0);
-    combined.set(seed, 8);
+    combined.set(seedBytes.slice(0, 12), 8);
     
     return this.bytesToWords(combined);
   },
@@ -85,7 +84,9 @@ const CryptoHelper = {
     const roomIdBytes = bytes.slice(0, 8);
     const roomId = Array.from(roomIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     
-    const seed = Array.from(bytes.slice(8, 20)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const seedBytes = bytes.slice(8, 20);
+    const seed = Array.from(seedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    
     const key = await this.generateKeyFromSeed(seed);
     
     return { roomId, key };

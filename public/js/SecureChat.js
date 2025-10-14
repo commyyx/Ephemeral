@@ -121,70 +121,72 @@ class SecureChat {
     });
   }
 
-  async createRoom() {
-    if (!this.isConnected) {
-      this.showError('Non connesso al server. Riprova tra poco.');
-      return;
-    }
+	async createRoom() {
+	  if (!this.isConnected) {
+		this.showError('Non connesso al server. Riprova tra poco.');
+		return;
+	  }
 
-    try {
-      const btn = document.getElementById('create-room-btn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="loading"></span> Creazione...';
+	  try {
+		const btn = document.getElementById('create-room-btn');
+		btn.disabled = true;
+		btn.innerHTML = '<span class="loading"></span> Creazione...';
 
-      this.encryptionKey = await crypto.subtle.generateKey(
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt"]
-      );
+		// FIX: Genera seed casuale (12 byte = 24 caratteri hex)
+		const seedArray = crypto.getRandomValues(new Uint8Array(12));
+		const seedHex = Array.from(seedArray).map(b => b.toString(16).padStart(2, '0')).join('');
+		
+		// FIX: Deriva chiave da seed usando PBKDF2 (stesso processo del client)
+		this.encryptionKey = await CryptoHelper.generateKeyFromSeed(seedHex);
 
-      const response = await fetch('/api/room/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+		const response = await fetch('/api/room/create', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json'
+		  }
+		});
 
-      if (!response.ok) {
-        throw new Error('Errore nella creazione della stanza');
-      }
+		if (!response.ok) {
+		  throw new Error('Errore nella creazione della stanza');
+		}
 
-      const data = await response.json();
-      this.roomId = data.roomId;
+		const data = await response.json();
+		this.roomId = data.roomId;
 
-      const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, this.encryptionKey);
-      const words = roomCode.split('-');
-      const preview = words.slice(0, 5).join('-') + '...';
+		// FIX: Passa il seed (non la chiave) a encodeRoomCode
+		const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
+		const words = roomCode.split('-');
+		const preview = words.slice(0, 5).join('-') + '...';
 
-      try {
-        await navigator.clipboard.writeText(roomCode);
-        this.showNotification(`Codice copiato! (${words.length} parole)`);
-        console.log('Codice completo:', roomCode);
-      } catch (err) {
-        const textarea = document.createElement('textarea');
-        textarea.value = roomCode;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        this.showNotification('Codice copiato negli appunti!');
-        console.log('Codice completo:', roomCode);
-      }
+		try {
+		  await navigator.clipboard.writeText(roomCode);
+		  this.showNotification(`Codice copiato! (${words.length} parole)`);
+		  console.log('Codice completo:', roomCode);
+		} catch (err) {
+		  const textarea = document.createElement('textarea');
+		  textarea.value = roomCode;
+		  document.body.appendChild(textarea);
+		  textarea.select();
+		  document.execCommand('copy');
+		  document.body.removeChild(textarea);
+		  this.showNotification('Codice copiato negli appunti!');
+		  console.log('Codice completo:', roomCode);
+		}
 
-      btn.disabled = false;
-      btn.textContent = 'Crea Stanza Sicura';
+		btn.disabled = false;
+		btn.textContent = 'Crea Stanza Sicura';
 
-      this.joinChat();
+		this.joinChat();
 
-    } catch (error) {
-      console.error('Errore nella creazione della stanza:', error);
-      this.showError('Errore nella creazione della stanza sicura');
-      
-      const btn = document.getElementById('create-room-btn');
-      btn.disabled = false;
-      btn.textContent = 'Crea Stanza Sicura';
-    }
-  }
+	  } catch (error) {
+		console.error('Errore nella creazione della stanza:', error);
+		this.showError('Errore nella creazione della stanza sicura');
+		
+		const btn = document.getElementById('create-room-btn');
+		btn.disabled = false;
+		btn.textContent = 'Crea Stanza Sicura';
+	  }
+	}
 
   async joinRoom() {
     const input = document.getElementById('join-room-input').value.trim();
