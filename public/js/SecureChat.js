@@ -3,12 +3,13 @@ class SecureChat {
     this.socket = null;
     this.roomId = null;
     this.encryptionKey = null;
+    this.roomCode = null; // NUOVO: salva il codice stanza
     this.messages = [];
     this.isConnected = false;
     this.isInRoom = false;
     this.userId = this.generateUserId();
     this.userColors = new Map();
-    this.wasConnectedBefore = false; // QW-001: Track riconnessione
+    this.wasConnectedBefore = false;
     
     this.initializeSocketIO();
     this.initializeEventListeners();
@@ -52,7 +53,6 @@ class SecureChat {
       this.isConnected = true;
       this.updateConnectionStatus(true);
       
-      // QW-001: Notifica riconnessione (solo se era connesso prima)
       if (this.wasConnectedBefore) {
         this.showNotification('Riconnesso al server');
       }
@@ -64,7 +64,6 @@ class SecureChat {
       this.isConnected = false;
       this.updateConnectionStatus(false);
       
-      // QW-001: Notifica disconnessione
       this.showError('Connessione persa...');
     });
 
@@ -77,7 +76,6 @@ class SecureChat {
       console.log('Unito alla stanza:', data.roomId);
       this.isInRoom = true;
       
-      // QW-001: Notifica connessione chat cifrata
       this.showNotification('Connesso alla chat cifrata!');
       this.addSystemMessage('Chat cifrata attiva. I messaggi si autodistruggono dopo 1 ora.');
     });
@@ -102,7 +100,6 @@ class SecureChat {
       }, 3000);
     });
 
-    // FEAT-ERASE: Listener per room_erased
     this.socket.on('room_erased', (data) => {
       this.handleRoomErased(data);
     });
@@ -129,9 +126,12 @@ class SecureChat {
     document.getElementById('join-room-btn').addEventListener('click', () => this.joinRoom());
     document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
     document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
-    
-    // FEAT-ERASE: Event listener per bottone Erase
     document.getElementById('erase-btn').addEventListener('click', () => this.eraseRoom());
+    
+    // NUOVO: Event listener per bottoni copia codice
+    document.getElementById('copy-room-code-btn').addEventListener('click', () => this.copyRoomCode());
+    document.getElementById('modal-copy-btn').addEventListener('click', () => this.copyRoomCodeFromModal());
+    document.getElementById('modal-confirm-btn').addEventListener('click', () => this.closeModal());
     
     const messageInput = document.getElementById('message-input');
     messageInput.addEventListener('keypress', (e) => {
@@ -153,7 +153,6 @@ class SecureChat {
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Creazione...';
       
-      // QW-001: Notifica creazione stanza
       this.showNotification('Creazione stanza in corso...');
 
       const seedArray = crypto.getRandomValues(new Uint8Array(12));
@@ -181,30 +180,32 @@ class SecureChat {
       this.roomId = data.roomId;
       console.log('Room ID ricevuto:', this.roomId);
 
-      const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
-      const words = roomCode.split('-');
+      this.roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
+      const words = this.roomCode.split('-');
       const preview = words.slice(0, 5).join('-') + '...';
       console.log('Codice generato:', words.length, 'parole -', preview);
 
+      // Copia negli appunti
       try {
-        await navigator.clipboard.writeText(roomCode);
+        await navigator.clipboard.writeText(this.roomCode);
         this.showNotification(`Codice copiato! (${words.length} parole)`);
-        console.log('Codice completo:', roomCode);
+        console.log('Codice completo:', this.roomCode);
       } catch (err) {
         const textarea = document.createElement('textarea');
-        textarea.value = roomCode;
+        textarea.value = this.roomCode;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
         this.showNotification('Codice copiato negli appunti!');
-        console.log('Codice completo:', roomCode);
+        console.log('Codice completo:', this.roomCode);
       }
 
       btn.disabled = false;
       btn.textContent = 'Crea Stanza Sicura';
 
-      this.joinChat();
+      // NUOVO: Mostra modal con il codice
+      this.showRoomCodeModal();
 
     } catch (error) {
       console.error('Errore nella creazione della stanza:', error);
@@ -213,6 +214,70 @@ class SecureChat {
       const btn = document.getElementById('create-room-btn');
       btn.disabled = false;
       btn.textContent = 'Crea Stanza Sicura';
+    }
+  }
+
+  // NUOVO: Mostra modal con codice stanza
+  showRoomCodeModal() {
+    const modal = document.getElementById('room-code-modal');
+    const codeTextarea = document.getElementById('modal-room-code');
+    
+    codeTextarea.value = this.roomCode;
+    modal.style.display = 'flex';
+  }
+
+  // NUOVO: Chiudi modal e apri chat
+  closeModal() {
+    const modal = document.getElementById('room-code-modal');
+    modal.style.display = 'none';
+    this.joinChat();
+  }
+
+  // NUOVO: Copia codice dal modal
+  async copyRoomCodeFromModal() {
+    const codeTextarea = document.getElementById('modal-room-code');
+    const btn = document.getElementById('modal-copy-btn');
+    
+    try {
+      await navigator.clipboard.writeText(this.roomCode);
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiato!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    } catch (err) {
+      codeTextarea.select();
+      document.execCommand('copy');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiato!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    }
+  }
+
+  // NUOVO: Copia codice dall'area permanente
+  async copyRoomCode() {
+    const btn = document.getElementById('copy-room-code-btn');
+    
+    try {
+      await navigator.clipboard.writeText(this.roomCode);
+      const originalText = btn.textContent;
+      btn.textContent = 'OK!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+      this.showNotification('Codice copiato!');
+    } catch (err) {
+      const codeInput = document.getElementById('room-code-text');
+      codeInput.select();
+      document.execCommand('copy');
+      const originalText = btn.textContent;
+      btn.textContent = 'OK!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+      this.showNotification('Codice copiato!');
     }
   }
 
@@ -233,7 +298,6 @@ class SecureChat {
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Accesso...';
       
-      // QW-001: Notifica connessione alla stanza
       this.showNotification('Connessione alla stanza...');
 
       if (input.includes('://') || input.includes('#room=')) {
@@ -250,6 +314,7 @@ class SecureChat {
         const decoded = await CryptoHelper.decodeRoomCode(sanitizedInput);
         this.roomId = decoded.roomId;
         this.encryptionKey = decoded.key;
+        this.roomCode = sanitizedInput; // NUOVO: salva il codice anche in join
         
         console.log('Decoded roomId:', this.roomId);
         console.log('Decoded key:', this.encryptionKey);
@@ -260,7 +325,7 @@ class SecureChat {
 
       if (!roomData.exists) {
         if (roomData.blocked) {
-          throw new Error('Questa stanza è stata bloccata');
+          throw new Error('Questa stanza e stata bloccata');
         }
         throw new Error('Stanza non trovata o scaduta');
       }
@@ -285,10 +350,20 @@ class SecureChat {
     document.getElementById('sidebar').classList.add('hidden');
     document.getElementById('chat-interface').classList.remove('hidden');
 
+    // NUOVO: Mostra area codice permanente
+    if (this.roomCode) {
+      const codeDisplay = document.getElementById('room-code-display');
+      const codeInput = document.getElementById('room-code-text');
+      const messagesContainer = document.getElementById('messages-container');
+      
+      codeInput.value = this.roomCode;
+      codeDisplay.style.display = 'flex';
+      messagesContainer.classList.remove('no-code-display');
+    }
+
     this.socket.emit('join_room', { roomId: this.roomId });
   }
 
-  // FEAT-ERASE: Erase Room
   async eraseRoom() {
     if (!this.roomId || !this.isInRoom) {
       return;
@@ -314,7 +389,6 @@ class SecureChat {
     }
   }
 
-  // FEAT-ERASE: Handle room erased event
   handleRoomErased(data) {
     this.showError(data.reason || 'Stanza cancellata');
     setTimeout(() => {
@@ -322,19 +396,24 @@ class SecureChat {
     }, 3000);
   }
 
-  // FEAT-ERASE: Close chat
   closeChat() {
     document.getElementById('chat-interface').classList.add('hidden');
     document.getElementById('sidebar').classList.remove('hidden');
     document.getElementById('welcome-screen').classList.remove('hidden');
     
+    // NUOVO: Nascondi area codice
+    const codeDisplay = document.getElementById('room-code-display');
+    codeDisplay.style.display = 'none';
+    
     this.roomId = null;
     this.encryptionKey = null;
+    this.roomCode = null; // NUOVO: reset codice
     this.isInRoom = false;
     this.messages = [];
     
     const messagesContainer = document.getElementById('messages-container');
     messagesContainer.innerHTML = '';
+    messagesContainer.classList.add('no-code-display');
     
     document.getElementById('message-input').value = '';
     document.getElementById('join-room-input').value = '';

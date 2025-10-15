@@ -48,6 +48,14 @@
             </div>
 
             <div id="chat-interface" class="hidden">
+                <div class="room-code-display" id="room-code-display" style="display: none;">
+                    <div class="room-code-header">
+                        <strong>Codice Stanza:</strong>
+                        <button id="copy-room-code-btn" class="copy-code-btn">Copia</button>
+                    </div>
+                    <input type="text" id="room-code-text" readonly class="room-code-input">
+                </div>
+                
                 <div class="messages" id="messages-container"></div>
 
                 <div class="input-area">
@@ -62,6 +70,29 @@
                 <div class="status">
                     <span id="message-status">I messaggi si autodistruggono dopo 1 ora</span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CODICE STANZA -->
+    <div id="room-code-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Codice Stanza Generato</h2>
+            </div>
+            <div class="modal-body">
+                <p class="warning-text">ATTENZIONE: Salva questo codice! Serve per accedere alla stanza.</p>
+                <p class="warning-text">Una volta chiusa questa finestra, potrai ricopiarlo dall'area sopra i messaggi.</p>
+                
+                <div class="code-container">
+                    <textarea id="modal-room-code" readonly class="modal-code-textarea"></textarea>
+                    <button id="modal-copy-btn" class="modal-copy-btn">Copia Codice</button>
+                </div>
+                
+                <p class="info-text">Condividi questo codice (20 parole) con chi vuoi invitare nella chat cifrata.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-confirm-btn" class="modal-confirm-btn">Ho salvato il codice, continua</button>
             </div>
         </div>
     </div>

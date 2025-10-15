@@ -9,8 +9,10 @@
     --text-dim: #a0a0a0;
     --error: #e63946;
     --success: #06ffa5;
+    --warning: #ffd60a;
     --header-height: 80px;
     --input-height: 100px;
+    --code-display-height: 60px;
 }
 
 * {
@@ -85,9 +87,68 @@ body {
     overflow: hidden;
 }
 
-.messages {
+/* AREA CODICE PERMANENTE */
+.room-code-display {
     position: absolute;
     top: 0;
+    left: 0;
+    right: 0;
+    height: var(--code-display-height);
+    background-color: var(--bg-darker);
+    border-bottom: 2px solid var(--accent);
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.room-code-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 140px;
+}
+
+.room-code-header strong {
+    color: var(--success);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.room-code-input {
+    flex: 1;
+    background-color: var(--bg-dark);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    color: var(--text-light);
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    font-family: 'Courier New', monospace;
+}
+
+.copy-code-btn {
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    min-width: 60px;
+    height: 40px;
+}
+
+.copy-code-btn:hover {
+    background-color: var(--primary);
+}
+
+/* MESSAGES - aggiustato per area codice */
+.messages {
+    position: absolute;
+    top: var(--code-display-height);
     left: 0;
     right: 0;
     bottom: var(--input-height);
@@ -95,6 +156,10 @@ body {
     overflow-x: hidden;
     padding: 1rem;
     background-color: var(--bg-dark);
+}
+
+.messages.no-code-display {
+    top: 0;
 }
 
 .messages::-webkit-scrollbar {
@@ -417,6 +482,137 @@ button:disabled {
     margin-bottom: 0.5rem;
 }
 
+/* MODAL STYLES */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background-color: var(--bg-darker);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    background-color: var(--primary);
+    padding: 1.5rem;
+    border-bottom: 2px solid var(--accent);
+}
+
+.modal-header h2 {
+    color: var(--success);
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.warning-text {
+    background-color: rgba(255, 214, 10, 0.1);
+    border-left: 4px solid var(--warning);
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    color: var(--warning);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.info-text {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    line-height: 1.5;
+}
+
+.code-container {
+    margin: 1.5rem 0;
+}
+
+.modal-code-textarea {
+    width: 100%;
+    min-height: 120px;
+    background-color: var(--bg-dark);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text-light);
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    padding: 1rem;
+    resize: vertical;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.modal-code-textarea:focus {
+    outline: none;
+    border-color: var(--success);
+}
+
+.modal-copy-btn {
+    width: 100%;
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: auto;
+    height: auto;
+}
+
+.modal-copy-btn:hover {
+    background-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(83, 52, 131, 0.4);
+}
+
+.modal-footer {
+    background-color: var(--bg-dark);
+    padding: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.modal-confirm-btn {
+    width: 100%;
+    background-color: var(--success);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: auto;
+    height: auto;
+}
+
+.modal-confirm-btn:hover {
+    background-color: #05e094;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(6, 255, 165, 0.4);
+}
+
 @media (min-width: 768px) {
     .header h1 {
         font-size: 1.5rem;
@@ -431,6 +627,7 @@ button:disabled {
     :root {
         --header-height: 70px;
         --input-height: 90px;
+        --code-display-height: 80px;
     }
 
     .header h1 {
@@ -464,5 +661,51 @@ button:disabled {
         padding: 0.5rem;
         font-size: 0.9rem;
         height: 50px;
+    }
+    
+    .room-code-display {
+        flex-direction: column;
+        height: auto;
+        gap: 0.25rem;
+        padding: 0.5rem;
+    }
+    
+    .room-code-header {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .room-code-input {
+        width: 100%;
+        font-size: 0.75rem;
+    }
+    
+    .copy-code-btn {
+        min-width: 50px;
+        height: 30px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
+    .modal-header h2 {
+        font-size: 1.2rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    .modal-code-textarea {
+        font-size: 0.85rem;
+        min-height: 100px;
     }
 }
