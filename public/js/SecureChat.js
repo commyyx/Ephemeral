@@ -121,72 +121,83 @@ class SecureChat {
     });
   }
 
-	async createRoom() {
-	  if (!this.isConnected) {
-		this.showError('Non connesso al server. Riprova tra poco.');
-		return;
-	  }
+  async createRoom() {
+    if (!this.isConnected) {
+      this.showError('Non connesso al server. Riprova tra poco.');
+      return;
+    }
 
-	  try {
-		const btn = document.getElementById('create-room-btn');
-		btn.disabled = true;
-		btn.innerHTML = '<span class="loading"></span> Creazione...';
+    try {
+      const btn = document.getElementById('create-room-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Creazione...';
 
-		// FIX: Genera seed casuale (12 byte = 24 caratteri hex)
-		const seedArray = crypto.getRandomValues(new Uint8Array(12));
-		const seedHex = Array.from(seedArray).map(b => b.toString(16).padStart(2, '0')).join('');
-		
-		// FIX: Deriva chiave da seed usando PBKDF2 (stesso processo del client)
-		this.encryptionKey = await CryptoHelper.generateKeyFromSeed(seedHex);
+      // STEP 1: Genera seed random (12 byte = 24 caratteri hex)
+      const seedArray = crypto.getRandomValues(new Uint8Array(12));
+      const seedHex = Array.from(seedArray)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      console.log('Seed generato:', seedHex, '(lunghezza:', seedHex.length, ')');
+      
+      // STEP 2: Deriva chiave da seed usando PBKDF2
+      this.encryptionKey = await CryptoHelper.generateKeyFromSeed(seedHex);
+      console.log('Chiave derivata:', this.encryptionKey);
 
-		const response = await fetch('/api/room/create', {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json'
-		  }
-		});
+      // STEP 3: Chiama API per creare stanza
+      const response = await fetch('/api/room/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-		if (!response.ok) {
-		  throw new Error('Errore nella creazione della stanza');
-		}
+      if (!response.ok) {
+        throw new Error('Errore nella creazione della stanza');
+      }
 
-		const data = await response.json();
-		this.roomId = data.roomId;
+      const data = await response.json();
+      this.roomId = data.roomId;
+      console.log('Room ID ricevuto:', this.roomId);
 
-		// FIX: Passa il seed (non la chiave) a encodeRoomCode
-		const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
-		const words = roomCode.split('-');
-		const preview = words.slice(0, 5).join('-') + '...';
+      // STEP 4: Encode roomId + seed in 20 parole
+      const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
+      const words = roomCode.split('-');
+      const preview = words.slice(0, 5).join('-') + '...';
+      console.log('Codice generato:', words.length, 'parole -', preview);
 
-		try {
-		  await navigator.clipboard.writeText(roomCode);
-		  this.showNotification(`Codice copiato! (${words.length} parole)`);
-		  console.log('Codice completo:', roomCode);
-		} catch (err) {
-		  const textarea = document.createElement('textarea');
-		  textarea.value = roomCode;
-		  document.body.appendChild(textarea);
-		  textarea.select();
-		  document.execCommand('copy');
-		  document.body.removeChild(textarea);
-		  this.showNotification('Codice copiato negli appunti!');
-		  console.log('Codice completo:', roomCode);
-		}
+      // STEP 5: Copia negli appunti
+      try {
+        await navigator.clipboard.writeText(roomCode);
+        this.showNotification(`Codice copiato! (${words.length} parole)`);
+        console.log('Codice completo:', roomCode);
+      } catch (err) {
+        // Fallback per browser vecchi
+        const textarea = document.createElement('textarea');
+        textarea.value = roomCode;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        this.showNotification('Codice copiato negli appunti!');
+        console.log('Codice completo:', roomCode);
+      }
 
-		btn.disabled = false;
-		btn.textContent = 'Crea Stanza Sicura';
+      btn.disabled = false;
+      btn.textContent = 'Crea Stanza Sicura';
 
-		this.joinChat();
+      // STEP 6: Join automatico
+      this.joinChat();
 
-	  } catch (error) {
-		console.error('Errore nella creazione della stanza:', error);
-		this.showError('Errore nella creazione della stanza sicura');
-		
-		const btn = document.getElementById('create-room-btn');
-		btn.disabled = false;
-		btn.textContent = 'Crea Stanza Sicura';
-	  }
-	}
+    } catch (error) {
+      console.error('Errore nella creazione della stanza:', error);
+      this.showError('Errore nella creazione della stanza sicura');
+      
+      const btn = document.getElementById('create-room-btn');
+      btn.disabled = false;
+      btn.textContent = 'Crea Stanza Sicura';
+    }
+  }
 
   async joinRoom() {
     const input = document.getElementById('join-room-input').value.trim();
@@ -206,24 +217,8 @@ class SecureChat {
       btn.innerHTML = '<span class="loading"></span> Accesso...';
 
       if (input.includes('://') || input.includes('#room=')) {
-        const url = new URL(input);
-        const hashParams = new URLSearchParams(url.hash.substring(1));
-
-        this.roomId = hashParams.get('room');
-        const keyBase64 = hashParams.get('key');
-
-        if (!this.roomId || !keyBase64) {
-          throw new Error('Link della stanza non valido');
-        }
-
-        const keyBytes = Uint8Array.from(atob(decodeURIComponent(keyBase64)), c => c.charCodeAt(0));
-        this.encryptionKey = await crypto.subtle.importKey(
-          "raw",
-          keyBytes,
-          { name: "AES-GCM", length: 256 },
-          true,
-          ["encrypt", "decrypt"]
-        );
+        // Formato URL vecchio (non supportato)
+        throw new Error('Formato URL non supportato. Usa il codice 20 parole.');
       } else {
         // SANITIZE INPUT prima di decodificare
         const sanitizedInput = input
@@ -232,11 +227,18 @@ class SecureChat {
           .replace(/[\r\n\t]/g, '')
           .toLowerCase();
         
+        console.log('Input sanitizzato:', sanitizedInput);
+        
+        // Decodifica 20 parole -> roomId + seed -> deriva chiave
         const decoded = await CryptoHelper.decodeRoomCode(sanitizedInput);
         this.roomId = decoded.roomId;
         this.encryptionKey = decoded.key;
+        
+        console.log('Decoded roomId:', this.roomId);
+        console.log('Decoded key:', this.encryptionKey);
       }
 
+      // Verifica stanza esistente
       const response = await fetch(`/api/room/${this.roomId}/exists`);
       const roomData = await response.json();
 

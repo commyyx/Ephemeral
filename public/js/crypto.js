@@ -62,14 +62,16 @@ const CryptoHelper = {
     );
   },
 
-  // FIX: Ora accetta il SEED direttamente, non la chiave
   async encodeRoomCode(roomId, seedHex) {
+    // Input: roomId (16 char hex = 8 byte), seedHex (24 char hex = 12 byte)
+    // Output: 20 parole (20 byte = 8 roomId + 12 seed)
+    
     const roomIdBytes = new Uint8Array(roomId.match(/.{2}/g).map(byte => parseInt(byte, 16)));
     const seedBytes = new Uint8Array(seedHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
     
     const combined = new Uint8Array(20);
-    combined.set(roomIdBytes.slice(0, 8), 0);
-    combined.set(seedBytes.slice(0, 12), 8);
+    combined.set(roomIdBytes.slice(0, 8), 0);     // byte 0-7: roomId
+    combined.set(seedBytes.slice(0, 12), 8);      // byte 8-19: seed
     
     return this.bytesToWords(combined);
   },
@@ -81,12 +83,15 @@ const CryptoHelper = {
       throw new Error(`Codice non valido (attese 20 parole, ricevute ${bytes.length})`);
     }
     
+    // Estrai roomId (primi 8 byte)
     const roomIdBytes = bytes.slice(0, 8);
     const roomId = Array.from(roomIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     
+    // Estrai seed (byte 8-19 = 12 byte)
     const seedBytes = bytes.slice(8, 20);
     const seed = Array.from(seedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     
+    // Deriva chiave da seed (STESSO processo di createRoom)
     const key = await this.generateKeyFromSeed(seed);
     
     return { roomId, key };
