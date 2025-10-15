@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { generateRoomId } = require('../utils/crypto');
+const { createRoomLimiter } = require('../middleware');
 
 function createRoomRoutes(rooms, messages, io) {
-  router.post('/create', (req, res) => {
+  // RATE LIMITED: max 5 stanze/ora per IP
+  router.post('/create', createRoomLimiter, (req, res) => {
     const roomId = generateRoomId();
     const room = {
       id: roomId,
@@ -16,7 +18,7 @@ function createRoomRoutes(rooms, messages, io) {
     rooms.set(roomId, room);
     messages.set(roomId, []);
     
-    console.log(`Stanza creata: ${roomId}`);
+    console.log(`Stanza creata: ${roomId} - IP: ${req.ip}`);
     res.json({ roomId, success: true });
   });
 

@@ -3,13 +3,14 @@ class SecureChat {
     this.socket = null;
     this.roomId = null;
     this.encryptionKey = null;
-    this.roomCode = null; // NUOVO: salva il codice stanza
+    this.roomCode = null;
     this.messages = [];
     this.isConnected = false;
     this.isInRoom = false;
     this.userId = this.generateUserId();
     this.userColors = new Map();
     this.wasConnectedBefore = false;
+    this.rateLimitCooldown = false; // NUOVO: flag rate limiting
     
     this.initializeSocketIO();
     this.initializeEventListeners();
@@ -71,6 +72,24 @@ class SecureChat {
       console.error('Errore dal server:', data.message);
       this.showError(data.message);
     });
+    
+    // NUOVO: Gestione rate limiting
+    this.socket.on('rate_limit_exceeded', (data) => {
+      console.warn('Rate limit exceeded:', data);
+      this.rateLimitCooldown = true;
+      
+      const minutes = Math.ceil(data.retryAfter / 60);
+      this.showError(`${data.message} Riprova tra ${minutes} minuto${minutes > 1 ? 'i' : ''}.`);
+      
+      // Disabilita pulsanti invio
+      this.disableSendControls(data.retryAfter);
+      
+      // Reset dopo cooldown
+      setTimeout(() => {
+        this.rateLimitCooldown = false;
+        this.enableSendControls();
+      }, data.retryAfter * 1000);
+    });
 
     this.socket.on('room_joined', (data) => {
       console.log('Unito alla stanza:', data.roomId);
@@ -120,6 +139,41 @@ class SecureChat {
       statusElement.className = 'encryption-status disconnected';
     }
   }
+  
+  // NUOVO: Disabilita controlli invio durante rate limit
+  disableSendControls(seconds) {
+    const sendBtn = document.getElementById('send-btn');
+    const fileInput = document.getElementById('file-input');
+    const messageInput = document.getElementById('message-input');
+    
+    sendBtn.disabled = true;
+    fileInput.disabled = true;
+    messageInput.disabled = true;
+    
+    const originalText = sendBtn.textContent;
+    const countdown = setInterval(() => {
+      seconds--;
+      sendBtn.textContent = `Attendi ${seconds}s`;
+      if (seconds <= 0) {
+        clearInterval(countdown);
+        sendBtn.textContent = originalText;
+      }
+    }, 1000);
+  }
+  
+  // NUOVO: Riabilita controlli invio
+  enableSendControls() {
+    const sendBtn = document.getElementById('send-btn');
+    const fileInput = document.getElementById('file-input');
+    const messageInput = document.getElementById('message-input');
+    
+    sendBtn.disabled = false;
+    fileInput.disabled = false;
+    messageInput.disabled = false;
+    sendBtn.textContent = 'Invia';
+    
+    this.showNotification('Puoi inviare di nuovo messaggi');
+  }
 
   initializeEventListeners() {
     document.getElementById('create-room-btn').addEventListener('click', () => this.createRoom());
@@ -127,8 +181,6 @@ class SecureChat {
     document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
     document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
     document.getElementById('erase-btn').addEventListener('click', () => this.eraseRoom());
-    
-    // NUOVO: Event listener per bottoni copia codice
     document.getElementById('copy-room-code-btn').addEventListener('click', () => this.copyRoomCode());
     document.getElementById('modal-copy-btn').addEventListener('click', () => this.copyRoomCodeFromModal());
     document.getElementById('modal-confirm-btn').addEventListener('click', () => this.closeModal());
@@ -172,6 +224,13 @@ class SecureChat {
         }
       });
 
+      // NUOVO: Gestione rate limiting HTTP
+      if (response.status === 429) {
+        const data = await response.json();
+        const minutes = Math.ceil(data.retryAfter / 60);
+        throw new Error(`${data.error} Riprova tra ${minutes} minuto${minutes > 1 ? 'i' : ''}.`);
+      }
+
       if (!response.ok) {
         throw new Error('Errore nella creazione della stanza');
       }
@@ -185,7 +244,6 @@ class SecureChat {
       const preview = words.slice(0, 5).join('-') + '...';
       console.log('Codice generato:', words.length, 'parole -', preview);
 
-      // Copia negli appunti
       try {
         await navigator.clipboard.writeText(this.roomCode);
         this.showNotification(`Codice copiato! (${words.length} parole)`);
@@ -204,12 +262,11 @@ class SecureChat {
       btn.disabled = false;
       btn.textContent = 'Crea Stanza Sicura';
 
-      // NUOVO: Mostra modal con il codice
       this.showRoomCodeModal();
 
     } catch (error) {
       console.error('Errore nella creazione della stanza:', error);
-      this.showError('Errore nella creazione della stanza sicura');
+      this.showError(error.message || 'Errore nella creazione della stanza sicura');
       
       const btn = document.getElementById('create-room-btn');
       btn.disabled = false;
@@ -217,7 +274,6 @@ class SecureChat {
     }
   }
 
-  // NUOVO: Mostra modal con codice stanza
   showRoomCodeModal() {
     const modal = document.getElementById('room-code-modal');
     const codeTextarea = document.getElementById('modal-room-code');
@@ -226,14 +282,12 @@ class SecureChat {
     modal.style.display = 'flex';
   }
 
-  // NUOVO: Chiudi modal e apri chat
   closeModal() {
     const modal = document.getElementById('room-code-modal');
     modal.style.display = 'none';
     this.joinChat();
   }
 
-  // NUOVO: Copia codice dal modal
   async copyRoomCodeFromModal() {
     const codeTextarea = document.getElementById('modal-room-code');
     const btn = document.getElementById('modal-copy-btn');
@@ -256,7 +310,6 @@ class SecureChat {
     }
   }
 
-  // NUOVO: Copia codice dall'area permanente
   async copyRoomCode() {
     const btn = document.getElementById('copy-room-code-btn');
     
@@ -314,7 +367,7 @@ class SecureChat {
         const decoded = await CryptoHelper.decodeRoomCode(sanitizedInput);
         this.roomId = decoded.roomId;
         this.encryptionKey = decoded.key;
-        this.roomCode = sanitizedInput; // NUOVO: salva il codice anche in join
+        this.roomCode = sanitizedInput;
         
         console.log('Decoded roomId:', this.roomId);
         console.log('Decoded key:', this.encryptionKey);
@@ -350,7 +403,6 @@ class SecureChat {
     document.getElementById('sidebar').classList.add('hidden');
     document.getElementById('chat-interface').classList.remove('hidden');
 
-    // NUOVO: Mostra area codice permanente
     if (this.roomCode) {
       const codeDisplay = document.getElementById('room-code-display');
       const codeInput = document.getElementById('room-code-text');
@@ -401,15 +453,15 @@ class SecureChat {
     document.getElementById('sidebar').classList.remove('hidden');
     document.getElementById('welcome-screen').classList.remove('hidden');
     
-    // NUOVO: Nascondi area codice
     const codeDisplay = document.getElementById('room-code-display');
     codeDisplay.style.display = 'none';
     
     this.roomId = null;
     this.encryptionKey = null;
-    this.roomCode = null; // NUOVO: reset codice
+    this.roomCode = null;
     this.isInRoom = false;
     this.messages = [];
+    this.rateLimitCooldown = false; // NUOVO: reset rate limit
     
     const messagesContainer = document.getElementById('messages-container');
     messagesContainer.innerHTML = '';
@@ -417,6 +469,9 @@ class SecureChat {
     
     document.getElementById('message-input').value = '';
     document.getElementById('join-room-input').value = '';
+    
+    // NUOVO: Riabilita controlli
+    this.enableSendControls();
   }
 
   async sendMessage() {
@@ -427,6 +482,12 @@ class SecureChat {
     
     if (!this.isConnected || !this.isInRoom) {
       this.showError('Non connesso alla stanza');
+      return;
+    }
+    
+    // NUOVO: Controlla rate limit locale
+    if (this.rateLimitCooldown) {
+      this.showError('Stai inviando troppi messaggi. Rallenta.');
       return;
     }
 
@@ -474,6 +535,13 @@ class SecureChat {
 
     if (!this.isConnected || !this.isInRoom) {
       this.showError('Non connesso alla stanza');
+      event.target.value = '';
+      return;
+    }
+    
+    // NUOVO: Controlla rate limit locale
+    if (this.rateLimitCooldown) {
+      this.showError('Stai inviando troppi file. Rallenta.');
       event.target.value = '';
       return;
     }

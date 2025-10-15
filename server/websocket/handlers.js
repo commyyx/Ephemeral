@@ -1,5 +1,6 @@
 const config = require('../config/config');
 const { generateMessageId } = require('../utils/crypto');
+const { checkMessageRateLimit, checkFileUploadLimit } = require('../middleware');
 
 function setupWebSocketHandlers(io, rooms, messages) {
   io.on('connection', (socket) => {
@@ -48,6 +49,38 @@ function setupWebSocketHandlers(io, rooms, messages) {
         return;
       }
       
+      // RATE LIMITING: Controlla limite messaggi
+      const rateLimitCheck = checkMessageRateLimit(socket.id);
+      if (!rateLimitCheck.allowed) {
+        console.log(`Rate limit exceeded for socket ${socket.id} - Messages`);
+        socket.emit('rate_limit_exceeded', {
+          message: rateLimitCheck.message,
+          retryAfter: rateLimitCheck.retryAfter,
+          remaining: rateLimitCheck.remaining
+        });
+        return;
+      }
+      
+      // RATE LIMITING FILE: Se e' un'immagine, controlla dimensione
+      if (message.type === 'image') {
+        // Stima dimensione da base64 (approssimativa)
+        const base64Length = message.content.length;
+        const fileSizeEstimate = (base64Length * 3) / 4; // Decodifica base64
+        
+        const uploadCheck = checkFileUploadLimit(roomId, fileSizeEstimate);
+        if (!uploadCheck.allowed) {
+          console.log(`Upload limit exceeded for room ${roomId}`);
+          socket.emit('rate_limit_exceeded', {
+            message: uploadCheck.message,
+            retryAfter: uploadCheck.retryAfter,
+            remaining: uploadCheck.remaining
+          });
+          return;
+        }
+        
+        console.log(`Upload consentito - Stanza ${roomId} - Rimanente: ${(uploadCheck.remaining / 1024 / 1024).toFixed(2)} MB`);
+      }
+      
       const messageObj = {
         id: generateMessageId(),
         content: message.content,
@@ -65,7 +98,7 @@ function setupWebSocketHandlers(io, rooms, messages) {
       
       io.to(roomId).emit('new_message', messageObj);
       
-      console.log(`Messaggio inviato in stanza ${roomId} - Tipo: ${message.type} - User: ${messageObj.userId}`);
+      console.log(`Messaggio inviato in stanza ${roomId} - Tipo: ${message.type} - User: ${messageObj.userId} - Remaining: ${rateLimitCheck.remaining}`);
     });
 
     socket.on('disconnect', () => {

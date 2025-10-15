@@ -1,7 +1,7 @@
 {
   "name": "securechat",
   "version": "1.0.0",
-  "description": "Piattaforma di messaggistica cifrata end-to-end - Completa con ERASE + QW-001",
+  "description": "Piattaforma di messaggistica cifrata end-to-end - Completa con ERASE + QW-001 + Rate Limiting",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
@@ -14,7 +14,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.1.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
