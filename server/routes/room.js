@@ -51,6 +51,27 @@ function createRoomRoutes(rooms, messages, io) {
     res.json({ success: true });
   });
 
+  // NUOVA ROUTE: DELETE /api/room/:roomId/erase
+  router.delete('/:roomId/erase', (req, res) => {
+    const roomId = req.params.roomId;
+    const room = rooms.get(roomId);
+    
+    if (room) {
+      // Notifica tutti gli utenti connessi PRIMA di eliminare
+      io.to(roomId).emit('room_erased', {
+        reason: 'Stanza cancellata'
+      });
+      
+      // Elimina stanza e messaggi
+      rooms.delete(roomId);
+      messages.delete(roomId);
+      
+      console.log(`Stanza ${roomId} eliminata (erase)`);
+    }
+    
+    res.json({ success: true, erased: true });
+  });
+
   return router;
 }
 

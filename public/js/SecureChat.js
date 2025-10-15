@@ -89,6 +89,11 @@ class SecureChat {
       }, 3000);
     });
 
+    // NUOVO: Listener per room_erased
+    this.socket.on('room_erased', (data) => {
+      this.handleRoomErased(data);
+    });
+
     this.socket.on('connect_error', (error) => {
       console.error('Errore di connessione:', error);
       this.showError('Impossibile connettersi al server');
@@ -112,6 +117,9 @@ class SecureChat {
     document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
     document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
     
+    // NUOVO: Event listener per bottone Erase
+    document.getElementById('erase-btn').addEventListener('click', () => this.eraseRoom());
+    
     const messageInput = document.getElementById('message-input');
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -132,7 +140,6 @@ class SecureChat {
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Creazione...';
 
-      // STEP 1: Genera seed random (12 byte = 24 caratteri hex)
       const seedArray = crypto.getRandomValues(new Uint8Array(12));
       const seedHex = Array.from(seedArray)
         .map(b => b.toString(16).padStart(2, '0'))
@@ -140,11 +147,9 @@ class SecureChat {
       
       console.log('Seed generato:', seedHex, '(lunghezza:', seedHex.length, ')');
       
-      // STEP 2: Deriva chiave da seed usando PBKDF2
       this.encryptionKey = await CryptoHelper.generateKeyFromSeed(seedHex);
       console.log('Chiave derivata:', this.encryptionKey);
 
-      // STEP 3: Chiama API per creare stanza
       const response = await fetch('/api/room/create', {
         method: 'POST',
         headers: {
@@ -160,19 +165,16 @@ class SecureChat {
       this.roomId = data.roomId;
       console.log('Room ID ricevuto:', this.roomId);
 
-      // STEP 4: Encode roomId + seed in 20 parole
       const roomCode = await CryptoHelper.encodeRoomCode(this.roomId, seedHex);
       const words = roomCode.split('-');
       const preview = words.slice(0, 5).join('-') + '...';
       console.log('Codice generato:', words.length, 'parole -', preview);
 
-      // STEP 5: Copia negli appunti
       try {
         await navigator.clipboard.writeText(roomCode);
         this.showNotification(`Codice copiato! (${words.length} parole)`);
         console.log('Codice completo:', roomCode);
       } catch (err) {
-        // Fallback per browser vecchi
         const textarea = document.createElement('textarea');
         textarea.value = roomCode;
         document.body.appendChild(textarea);
@@ -186,7 +188,6 @@ class SecureChat {
       btn.disabled = false;
       btn.textContent = 'Crea Stanza Sicura';
 
-      // STEP 6: Join automatico
       this.joinChat();
 
     } catch (error) {
@@ -217,10 +218,8 @@ class SecureChat {
       btn.innerHTML = '<span class="loading"></span> Accesso...';
 
       if (input.includes('://') || input.includes('#room=')) {
-        // Formato URL vecchio (non supportato)
         throw new Error('Formato URL non supportato. Usa il codice 20 parole.');
       } else {
-        // SANITIZE INPUT prima di decodificare
         const sanitizedInput = input
           .trim()
           .replace(/\s+/g, '')
@@ -229,7 +228,6 @@ class SecureChat {
         
         console.log('Input sanitizzato:', sanitizedInput);
         
-        // Decodifica 20 parole -> roomId + seed -> deriva chiave
         const decoded = await CryptoHelper.decodeRoomCode(sanitizedInput);
         this.roomId = decoded.roomId;
         this.encryptionKey = decoded.key;
@@ -238,7 +236,6 @@ class SecureChat {
         console.log('Decoded key:', this.encryptionKey);
       }
 
-      // Verifica stanza esistente
       const response = await fetch(`/api/room/${this.roomId}/exists`);
       const roomData = await response.json();
 
@@ -270,6 +267,64 @@ class SecureChat {
     document.getElementById('chat-interface').classList.remove('hidden');
 
     this.socket.emit('join_room', { roomId: this.roomId });
+  }
+
+  // NUOVO METODO: Erase Room
+  async eraseRoom() {
+    if (!this.roomId || !this.isInRoom) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/room/${this.roomId}/erase`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        console.log('Stanza eliminata con successo');
+        this.closeChat();
+      } else {
+        throw new Error('Errore nella cancellazione');
+      }
+    } catch (error) {
+      console.error('Errore nella cancellazione stanza:', error);
+      this.showError('Errore nella cancellazione della stanza');
+    }
+  }
+
+  // NUOVO METODO: Handle room erased event
+  handleRoomErased(data) {
+    // Mostra notifica rossa
+    this.showError(data.reason || 'Stanza cancellata');
+    
+    // Chiudi chat dopo 3 secondi
+    setTimeout(() => {
+      this.closeChat();
+    }, 3000);
+  }
+
+  // NUOVO METODO: Close chat
+  closeChat() {
+    document.getElementById('chat-interface').classList.add('hidden');
+    document.getElementById('sidebar').classList.remove('hidden');
+    document.getElementById('welcome-screen').classList.remove('hidden');
+    
+    // Reset stato
+    this.roomId = null;
+    this.encryptionKey = null;
+    this.isInRoom = false;
+    this.messages = [];
+    
+    // Pulisci container messaggi
+    const messagesContainer = document.getElementById('messages-container');
+    messagesContainer.innerHTML = '';
+    
+    // Reset input
+    document.getElementById('message-input').value = '';
+    document.getElementById('join-room-input').value = '';
   }
 
   async sendMessage() {
