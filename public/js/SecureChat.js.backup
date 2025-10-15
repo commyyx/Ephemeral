@@ -8,7 +8,6 @@ class SecureChat {
     this.isInRoom = false;
     this.userId = this.generateUserId();
     this.userColors = new Map();
-    this.wasConnectedBefore = false; // QW-001: Track per riconnessione
     
     this.initializeSocketIO();
     this.initializeEventListeners();
@@ -51,21 +50,12 @@ class SecureChat {
       console.log('Connesso al server WebSocket');
       this.isConnected = true;
       this.updateConnectionStatus(true);
-      
-      // QW-001: Notifica riconnessione (solo se era connesso prima)
-      if (this.wasConnectedBefore) {
-        this.showNotification('Riconnesso al server');
-      }
-      this.wasConnectedBefore = true;
     });
 
     this.socket.on('disconnect', () => {
       console.log('Disconnesso dal server');
       this.isConnected = false;
       this.updateConnectionStatus(false);
-      
-      // QW-001: Notifica disconnessione
-      this.showError('Connessione persa...');
     });
 
     this.socket.on('error', (data) => {
@@ -76,9 +66,6 @@ class SecureChat {
     this.socket.on('room_joined', (data) => {
       console.log('Unito alla stanza:', data.roomId);
       this.isInRoom = true;
-      
-      // QW-001: Notifica connessione chat cifrata
-      this.showNotification('Connesso alla chat cifrata!');
       this.addSystemMessage('Chat cifrata attiva. I messaggi si autodistruggono dopo 1 ora.');
     });
 
@@ -102,6 +89,7 @@ class SecureChat {
       }, 3000);
     });
 
+    // NUOVO: Listener per room_erased
     this.socket.on('room_erased', (data) => {
       this.handleRoomErased(data);
     });
@@ -128,6 +116,8 @@ class SecureChat {
     document.getElementById('join-room-btn').addEventListener('click', () => this.joinRoom());
     document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
     document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
+    
+    // NUOVO: Event listener per bottone Erase
     document.getElementById('erase-btn').addEventListener('click', () => this.eraseRoom());
     
     const messageInput = document.getElementById('message-input');
@@ -150,7 +140,7 @@ class SecureChat {
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Creazione...';
       
-      // QW-001: Notifica creazione stanza
+      // QW-001: Feedback visivo
       this.showNotification('Creazione stanza in corso...');
 
       const seedArray = crypto.getRandomValues(new Uint8Array(12));
@@ -229,9 +219,6 @@ class SecureChat {
       const btn = document.getElementById('join-room-btn');
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Accesso...';
-      
-      // QW-001: Notifica connessione alla stanza
-      this.showNotification('Connessione alla stanza...');
 
       if (input.includes('://') || input.includes('#room=')) {
         throw new Error('Formato URL non supportato. Usa il codice 20 parole.');
@@ -285,6 +272,7 @@ class SecureChat {
     this.socket.emit('join_room', { roomId: this.roomId });
   }
 
+  // NUOVO METODO: Erase Room
   async eraseRoom() {
     if (!this.roomId || !this.isInRoom) {
       return;
@@ -310,26 +298,34 @@ class SecureChat {
     }
   }
 
+  // NUOVO METODO: Handle room erased event
   handleRoomErased(data) {
+    // Mostra notifica rossa
     this.showError(data.reason || 'Stanza cancellata');
+    
+    // Chiudi chat dopo 3 secondi
     setTimeout(() => {
       this.closeChat();
     }, 3000);
   }
 
+  // NUOVO METODO: Close chat
   closeChat() {
     document.getElementById('chat-interface').classList.add('hidden');
     document.getElementById('sidebar').classList.remove('hidden');
     document.getElementById('welcome-screen').classList.remove('hidden');
     
+    // Reset stato
     this.roomId = null;
     this.encryptionKey = null;
     this.isInRoom = false;
     this.messages = [];
     
+    // Pulisci container messaggi
     const messagesContainer = document.getElementById('messages-container');
     messagesContainer.innerHTML = '';
     
+    // Reset input
     document.getElementById('message-input').value = '';
     document.getElementById('join-room-input').value = '';
   }
