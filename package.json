@@ -1,14 +1,21 @@
 {
   "name": "securechat",
-  "version": "1.0.0",
-  "description": "Piattaforma di messaggistica cifrata end-to-end - Completa con ERASE + QW-001 + Rate Limiting",
+  "version": "1.2.0",
+  "description": "Piattaforma di messaggistica cifrata E2E con rate limiting - v1.2.0",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["chat", "encryption", "secure", "anonymous", "e2ee"],
+  "keywords": [
+    "chat",
+    "encryption",
+    "secure",
+    "anonymous",
+    "e2ee",
+    "rate-limiting"
+  ],
   "author": "SecureChat Team",
   "license": "MIT",
   "dependencies": {
@@ -22,5 +29,14 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/securechat"
+  },
+  "changelog": {
+    "1.2.0": "Rate limiting implementation (INF-003)",
+    "1.1.0": "Fix codice stanza recuperabile",
+    "1.0.0": "Base release (ERASE + QW-001)"
   }
 }

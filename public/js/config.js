@@ -1,4 +1,14 @@
+/**
+ * SecureChat - Client Configuration
+ * @version 1.2.0
+ * @description Configurazione client-side per chat cifrata E2E
+ */
+
 const CONFIG = {
+  VERSION: '1.2.0',
+  VERSION_NAME: 'Rate Limit',
+  BUILD_DATE: '2025-10-15',
+  
   WORDLIST: [
     'mare','sole','luna','cielo','terra','acqua','fuoco','vento','stella','notte',
     'giorno','alba','tramonto','nuvola','pioggia','neve','ghiaccio','fiamma','onda','sabbia',
@@ -45,3 +55,8 @@ const CONFIG = {
   
   CHUNK_SIZE: 8192 // Per evitare stack overflow
 };
+
+// Log versione in console
+console.log(`%c Ephemeral v${CONFIG.VERSION} `, 'background: #533483; color: #06ffa5; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
+console.log(`%c ${CONFIG.VERSION_NAME} - Build ${CONFIG.BUILD_DATE} `, 'color: #a0a0a0; font-size: 0.9em;');
+console.log('%c E2EE Chat with Rate Limiting ', 'color: #a0a0a0; font-style: italic;');

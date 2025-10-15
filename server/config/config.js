@@ -1,12 +1,32 @@
+/**
+ * SecureChat Configuration
+ * @version 1.2.0
+ * @description Piattaforma di messaggistica cifrata E2E con rate limiting
+ * @changelog
+ *   - v1.0.0: Base (ERASE + QW-001)
+ *   - v1.1.0: Fix recupero codice stanza
+ *   - v1.2.0: Rate limiting (INF-003)
+ */
+
 module.exports = {
+  // Versioning
+  VERSION: '1.2.0',
+  VERSION_NAME: 'Rate Limit',
+  BUILD_DATE: '2025-10-15',
+  
+  // Server
   PORT: process.env.PORT || 3000,
-  MESSAGE_EXPIRY_MS: 60 * 60 * 1000, // 1 ora
-  ROOM_CLEANUP_INTERVAL: 30 * 60 * 1000, // 30 minuti
-  ROOM_INACTIVE_HOURS: 24,
-  MAX_MESSAGES_HISTORY: 50,
   NODE_ENV: process.env.NODE_ENV || 'development',
   
-  // RATE LIMITING CONFIG
+  // Messaggi
+  MESSAGE_EXPIRY_MS: 60 * 60 * 1000, // 1 ora
+  MAX_MESSAGES_HISTORY: 50,
+  
+  // Stanze
+  ROOM_CLEANUP_INTERVAL: 30 * 60 * 1000, // 30 minuti
+  ROOM_INACTIVE_HOURS: 24,
+  
+  // Rate Limiting
   RATE_LIMIT: {
     // Creazione stanze: max 5 per ora per IP
     CREATE_ROOM: {

@@ -1,3 +1,9 @@
+/**
+ * SecureChat - Server Entry Point
+ * @version 1.2.0
+ * @description Server Node.js per chat cifrata E2E con rate limiting
+ */
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -50,6 +56,18 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Start server
 server.listen(config.PORT, () => {
-  console.log(`Server SecureChat in esecuzione sulla porta ${config.PORT}`);
-  console.log(`Ambiente: ${config.NODE_ENV}`);
+  console.log('='.repeat(60));
+  console.log(`  Ephemeral SecureChat v${config.VERSION} - ${config.VERSION_NAME}`);
+  console.log('='.repeat(60));
+  console.log(`  Server in esecuzione: http://localhost:${config.PORT}`);
+  console.log(`  Ambiente: ${config.NODE_ENV}`);
+  console.log(`  Build: ${config.BUILD_DATE}`);
+  console.log('='.repeat(60));
+  console.log('  Features:');
+  console.log('    - E2EE (AES-256-GCM)');
+  console.log('    - Codice 20 parole');
+  console.log('    - Rate Limiting attivo');
+  console.log('    - Auto-cleanup messaggi');
+  console.log('    - Upload file cifrati');
+  console.log('='.repeat(60));
 });
