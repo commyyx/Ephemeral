@@ -223,7 +223,6 @@ button:disabled {
     opacity: 0.5;
 }
 
-/* NUOVO: Styling bottone Erase */
 .erase-btn {
     background-color: var(--error);
     color: white;
@@ -450,7 +449,6 @@ button:disabled {
         height: 50px;
     }
 
-    /* MOBILE: Bottone Erase touch-friendly */
     .erase-btn {
         min-width: 48px;
         height: 48px;

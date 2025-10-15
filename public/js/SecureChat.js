@@ -8,7 +8,7 @@ class SecureChat {
     this.isInRoom = false;
     this.userId = this.generateUserId();
     this.userColors = new Map();
-    this.wasConnectedBefore = false; // QW-001: Track per riconnessione
+    this.wasConnectedBefore = false; // QW-001: Track riconnessione
     
     this.initializeSocketIO();
     this.initializeEventListeners();
@@ -102,6 +102,7 @@ class SecureChat {
       }, 3000);
     });
 
+    // FEAT-ERASE: Listener per room_erased
     this.socket.on('room_erased', (data) => {
       this.handleRoomErased(data);
     });
@@ -128,6 +129,8 @@ class SecureChat {
     document.getElementById('join-room-btn').addEventListener('click', () => this.joinRoom());
     document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
     document.getElementById('file-input').addEventListener('change', (e) => this.handleFileUpload(e));
+    
+    // FEAT-ERASE: Event listener per bottone Erase
     document.getElementById('erase-btn').addEventListener('click', () => this.eraseRoom());
     
     const messageInput = document.getElementById('message-input');
@@ -285,6 +288,7 @@ class SecureChat {
     this.socket.emit('join_room', { roomId: this.roomId });
   }
 
+  // FEAT-ERASE: Erase Room
   async eraseRoom() {
     if (!this.roomId || !this.isInRoom) {
       return;
@@ -310,6 +314,7 @@ class SecureChat {
     }
   }
 
+  // FEAT-ERASE: Handle room erased event
   handleRoomErased(data) {
     this.showError(data.reason || 'Stanza cancellata');
     setTimeout(() => {
@@ -317,6 +322,7 @@ class SecureChat {
     }, 3000);
   }
 
+  // FEAT-ERASE: Close chat
   closeChat() {
     document.getElementById('chat-interface').classList.add('hidden');
     document.getElementById('sidebar').classList.remove('hidden');

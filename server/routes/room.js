@@ -51,7 +51,7 @@ function createRoomRoutes(rooms, messages, io) {
     res.json({ success: true });
   });
 
-  // NUOVA ROUTE: DELETE /api/room/:roomId/erase
+  // FEAT-ERASE: DELETE /api/room/:roomId/erase
   router.delete('/:roomId/erase', (req, res) => {
     const roomId = req.params.roomId;
     const room = rooms.get(roomId);

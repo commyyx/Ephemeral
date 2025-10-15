@@ -33,7 +33,7 @@ const CONFIG = {
     '#9d4edd', '#ff006e', '#06d6a0', '#ffd60a'
   ],
   
-  USER_ICONS: ['🌟', '🌙', '☀️', '🔥', '💧', '🌸', '🍀', '⚡'],
+  USER_ICONS: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
   
   MAX_FILE_SIZE: 2 * 1024 * 1024, // 2MB
   

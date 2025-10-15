@@ -12,7 +12,7 @@ const CryptoHelper = {
   },
 
   wordsToBytes(wordsString) {
-    // SANITIZE INPUT: rimuovi spazi, newline, tab
+    // FIX: SANITIZE INPUT - rimuovi spazi, newline, tab
     const sanitized = wordsString
       .trim()
       .replace(/\s+/g, '')

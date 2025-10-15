@@ -1,7 +1,7 @@
 {
   "name": "securechat",
   "version": "1.0.0",
-  "description": "Piattaforma di messaggistica cifrata end-to-end - Modularizzato",
+  "description": "Piattaforma di messaggistica cifrata end-to-end - Completa con ERASE + QW-001",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
