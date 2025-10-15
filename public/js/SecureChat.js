@@ -50,12 +50,22 @@ class SecureChat {
       console.log('Connesso al server WebSocket');
       this.isConnected = true;
       this.updateConnectionStatus(true);
+      
+      // QW-001: Feedback visivo riconnessione (se era disconnesso)
+      if (this.isInRoom) {
+        this.showNotification('Riconnesso al server');
+      }
     });
 
     this.socket.on('disconnect', () => {
       console.log('Disconnesso dal server');
       this.isConnected = false;
       this.updateConnectionStatus(false);
+      
+      // QW-001: Feedback visivo disconnect
+      if (this.isInRoom) {
+        this.showError('Connessione persa. Tentativo riconnessione...');
+      }
     });
 
     this.socket.on('error', (data) => {
@@ -66,6 +76,10 @@ class SecureChat {
     this.socket.on('room_joined', (data) => {
       console.log('Unito alla stanza:', data.roomId);
       this.isInRoom = true;
+      
+      // QW-001: Feedback visivo successo
+      this.showNotification('Connesso alla chat cifrata!');
+      
       this.addSystemMessage('Chat cifrata attiva. I messaggi si autodistruggono dopo 1 ora.');
     });
 
@@ -139,6 +153,9 @@ class SecureChat {
       const btn = document.getElementById('create-room-btn');
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Creazione...';
+      
+      // QW-001: Feedback visivo
+      this.showNotification('Creazione stanza in corso...');
 
       const seedArray = crypto.getRandomValues(new Uint8Array(12));
       const seedHex = Array.from(seedArray)
@@ -216,6 +233,9 @@ class SecureChat {
       const btn = document.getElementById('join-room-btn');
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Accesso...';
+      
+      // QW-001: Feedback visivo
+      this.showNotification('Connessione alla stanza...');
 
       if (input.includes('://') || input.includes('#room=')) {
         throw new Error('Formato URL non supportato. Usa il codice 20 parole.');
